@@ -323,6 +323,36 @@
     #exportImageButton:hover {
       opacity: 0.9;
     }
+
+  .saved-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+  }
+
+  .saved-name-row span {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .saved-name-action {
+    border: 1px solid #555c68;
+    background: #2b2f38;
+    color: #e6e8ec;
+    border-radius: 7px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+
+  .saved-name-action.delete {
+    color: #ffb4a0;
+  }
+
 </style>
 </head>
 <body>
@@ -370,7 +400,7 @@
 <div class="name-modal" id="nameModal">
   <div class="name-dialog">
     <h2><span class="selected-letter" id="selectedLetter">A</span> の人の名前</h2>
-    <p>このアルファベットの人の名前を入力してください。</p>
+    <p>名前を追加するか、登録済みの名前を変更できます。</p>
     <input id="nameInput" type="text" placeholder="人の名前を入力">
     <div class="saved-names" id="savedNames"></div>
     <div class="modal-buttons">
@@ -389,6 +419,7 @@ let counts = {};
 let names = {};
 let minusMode = false;
 let selectedLetter = null;
+let editingNameIndex = null;
 
 function loadData() {
   try {
@@ -509,8 +540,11 @@ function renderNames() {
 
 function openNameModal(letter) {
   selectedLetter = letter;
+  editingNameIndex = null;
+
   document.getElementById("selectedLetter").textContent = letter;
   document.getElementById("nameInput").value = "";
+  document.getElementById("saveNameButton").textContent = "追加";
   renderSavedNames();
   document.getElementById("nameModal").classList.add("show");
 
@@ -521,31 +555,83 @@ function openNameModal(letter) {
 
 function renderSavedNames() {
   const element = document.getElementById("savedNames");
+  element.innerHTML = "";
 
-  element.textContent =
-    selectedLetter && names[selectedLetter].length
-      ? "登録済み： " + names[selectedLetter].join("、")
-      : "";
+  if (!selectedLetter || names[selectedLetter].length === 0) {
+    return;
+  }
+
+  const title = document.createElement("div");
+  title.textContent = "登録済み";
+  title.style.marginBottom = "6px";
+  element.appendChild(title);
+
+  names[selectedLetter].forEach((name, index) => {
+    const row = document.createElement("div");
+    row.className = "saved-name-row";
+
+    const nameText = document.createElement("span");
+    nameText.textContent = name;
+
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "saved-name-action";
+    editButton.textContent = "変更";
+    editButton.addEventListener("click", () => {
+      editingNameIndex = index;
+      document.getElementById("nameInput").value = name;
+      document.getElementById("saveNameButton").textContent = "変更";
+      document.getElementById("nameInput").focus();
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "saved-name-action delete";
+    deleteButton.textContent = "削除";
+    deleteButton.addEventListener("click", () => {
+      names[selectedLetter].splice(index, 1);
+      editingNameIndex = null;
+      document.getElementById("nameInput").value = "";
+      document.getElementById("saveNameButton").textContent = "追加";
+      save();
+      renderSavedNames();
+      render();
+    });
+
+    row.appendChild(nameText);
+    row.appendChild(editButton);
+    row.appendChild(deleteButton);
+    element.appendChild(row);
+  });
 }
 
 function closeNameModal() {
   document.getElementById("nameModal").classList.remove("show");
   selectedLetter = null;
+  editingNameIndex = null;
 }
 
 function addListenerName() {
   if (!selectedLetter) return;
 
   const nameInput = document.getElementById("nameInput");
-  const name = nameInput.value.trim();
+  const name = nameInput.value
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim();
 
-  // 空白だけの場合は追加しない
+  // 空白・見えない文字だけの場合は登録しない
   if (!name) {
+    nameInput.value = "";
     nameInput.focus();
     return;
   }
 
-  names[selectedLetter].push(name);
+  if (editingNameIndex !== null) {
+    names[selectedLetter][editingNameIndex] = name;
+  } else {
+    names[selectedLetter].push(name);
+  }
+
   save();
   closeNameModal();
   render();
@@ -766,8 +852,8 @@ function exportAlphabetImage() {
     const x = sidePadding + column * (cardWidth + cardGap);
     const y = headerHeight + row * (cardHeight + cardGap);
     const count = counts[letter];
-    const level = getLevel(count);
-    const savedNames = names[letter];
+    const level = getLevel(Math.max(0, Number(count) || 0));
+    const savedNames = Array.isArray(names[letter]) ? names[letter] : [];
 
     let cardBackground = "#1b1e25";
     let cardBorder = "#353944";
