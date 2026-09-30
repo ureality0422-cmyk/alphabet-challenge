@@ -356,6 +356,20 @@
   </div>
 </div>
 
+
+<div class="name-modal" id="nameModal">
+  <div class="name-dialog">
+    <h2><span class="selected-letter" id="selectedLetter">A</span> の人の名前</h2>
+    <p>このアルファベットの人の名前を入力してください。</p>
+    <input id="nameInput" type="text" placeholder="人の名前を入力">
+    <div class="saved-names" id="savedNames"></div>
+    <div class="modal-buttons">
+      <button class="modal-button" id="cancelNameButton">キャンセル</button>
+      <button class="modal-button primary" id="saveNameButton">追加</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const storageKey = "alphabetChallengeCounts";
@@ -428,6 +442,11 @@ function changeCount(letter) {
   counts[letter] += 1;
   save();
   render();
+
+  // 26文字すべて揃った瞬間に達成判定
+  checkAchievement();
+
+  // アルファベットを押したら人名入力ポップアップを開く
   openNameModal(letter);
 }
 
@@ -476,10 +495,6 @@ function renderSavedNames() {
 function closeNameModal() {
   document.getElementById("nameModal").classList.remove("show");
   selectedLetter = null;
-
-  // 名前入力ポップアップを閉じた直後に達成判定する。
-  // 26文字目を登録したタイミングでも確実に達成ポップアップを表示する。
-  checkAchievement();
 }
 
 function addListenerName() {
@@ -614,7 +629,7 @@ document.getElementById("resetButton").addEventListener("click", () => {
 
   letters.forEach(letter => {
     counts[letter] = 0;
-    names[letter] = "";
+    names[letter] = [];
   });
   achievementLevel = 0;
   save();
