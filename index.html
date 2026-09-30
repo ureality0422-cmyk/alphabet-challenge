@@ -350,6 +350,7 @@
   <div class="controls">
     <button class="control" id="minusMode">減らすモード：OFF</button>
     <button class="control" id="saveButton">保存</button>
+    <button class="control" id="exportImageButton">画像で書き出す</button>
     <button class="control reset" id="resetButton">全リセット</button>
   </div>
 
@@ -384,17 +385,40 @@ const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const storageKey = "alphabetChallengeCounts";
 const namesStorageKey = "alphabetChallengeNames";
 
-let counts = JSON.parse(localStorage.getItem(storageKey) || "{}");
-let names = JSON.parse(localStorage.getItem(namesStorageKey) || "{}");
+let counts = {};
+let names = {};
 let minusMode = false;
-let achievementLevel = 0;
 let selectedLetter = null;
 
-letters.forEach(letter => {
-  if (!Number.isFinite(counts[letter])) counts[letter] = 0;
-  if (typeof names[letter] === "string") names[letter] = names[letter] ? [names[letter]] : [];
-  if (!Array.isArray(names[letter])) names[letter] = [];
-});
+function loadData() {
+  try {
+    counts = JSON.parse(localStorage.getItem(storageKey) || "{}");
+  } catch {
+    counts = {};
+  }
+
+  try {
+    names = JSON.parse(localStorage.getItem(namesStorageKey) || "{}");
+  } catch {
+    names = {};
+  }
+
+  letters.forEach(letter => {
+    if (!Number.isFinite(counts[letter])) {
+      counts[letter] = 0;
+    }
+
+    if (typeof names[letter] === "string") {
+      names[letter] = names[letter] ? [names[letter]] : [];
+    }
+
+    if (!Array.isArray(names[letter])) {
+      names[letter] = [];
+    }
+  });
+
+  save();
+}
 
 const alphabetElement = document.getElementById("alphabet");
 const uniqueCountElement = document.getElementById("uniqueCount");
@@ -403,7 +427,6 @@ const silverCountElement = document.getElementById("silverCount");
 const goldCountElement = document.getElementById("goldCount");
 const totalCountElement = document.getElementById("totalCount");
 const barFillElement = document.getElementById("barFill");
-const overlayElement = document.getElementById("overlay");
 
 function save() {
   localStorage.setItem(storageKey, JSON.stringify(counts));
@@ -425,10 +448,12 @@ function render() {
     button.className = "letter";
 
     const level = getLevel(counts[letter]);
-    if (level) button.classList.add(level);
+    if (level) {
+      button.classList.add(level);
+    }
 
     button.innerHTML = `
-        <span class="letter-name">${letter}</span>
+      <span class="letter-name">${letter}</span>
       <span class="count">${counts[letter]}回</span>
     `;
 
@@ -444,102 +469,13 @@ function changeCount(letter) {
   if (minusMode) {
     counts[letter] = Math.max(0, counts[letter] - 1);
     save();
-    
-function exportAlphabetImage() {
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-
-  const canvasWidth = 1400;
-  const itemWidth = 620;
-  const itemHeight = 125;
-  const horizontalGap = 40;
-  const verticalGap = 20;
-  const columns = 2;
-  const rows = Math.ceil(letters.length / columns);
-  const headerHeight = 150;
-
-  canvas.width = canvasWidth;
-  canvas.height = headerHeight + rows * (itemHeight + verticalGap) + 60;
-
-  context.fillStyle = "#f7f7f7";
-  context.fillRect(0, 0, canvas.width, canvas.height);
-
-  context.fillStyle = "#222";
-  context.textAlign = "center";
-  context.font = "bold 44px sans-serif";
-  context.fillText("アルファベットチャレンジ", canvasWidth / 2, 62);
-
-  const totalCount = letters.reduce((sum, letter) => sum + counts[letter], 0);
-  context.font = "24px sans-serif";
-  context.fillStyle = "#555";
-  context.fillText(`合計 ${totalCount} 回`, canvasWidth / 2, 105);
-
-  letters.forEach((letter, index) => {
-    const column = index % columns;
-    const row = Math.floor(index / columns);
-    const x = 40 + column * (itemWidth + horizontalGap);
-    const y = headerHeight + row * (itemHeight + verticalGap);
-
-    context.fillStyle = "#fff";
-    context.strokeStyle = "#ddd";
-    context.lineWidth = 2;
-    context.beginPath();
-    context.roundRect(x, y, itemWidth, itemHeight, 18);
-    context.fill();
-    context.stroke();
-
-    context.textAlign = "left";
-    context.fillStyle = "#222";
-    context.font = "bold 58px sans-serif";
-    context.fillText(letter, x + 24, y + 70);
-
-    const savedNames = Array.isArray(names[letter]) ? names[letter] : [];
-    const nameText = savedNames.length ? savedNames.join("、") : "名前未登録";
-
-    let nameFontSize = 27;
-    context.font = `bold ${nameFontSize}px sans-serif`;
-    while (nameFontSize > 17 && context.measureText(nameText).width > 360) {
-      nameFontSize--;
-      context.font = `bold ${nameFontSize}px sans-serif`;
-    }
-
-    context.fillStyle = "#333";
-    context.fillText(nameText, x + 115, y + 55);
-
-    context.fillStyle = "#777";
-    context.font = "20px sans-serif";
-    context.fillText(`${counts[letter]} 回`, x + 115, y + 88);
-
-    if (counts[letter] >= 3) {
-      context.fillStyle = "#16a34a";
-      context.font = "bold 24px sans-serif";
-      context.fillText("達成", x + 500, y + 70);
-    }
-  });
-
-  if (letters.every(letter => counts[letter] >= 3)) {
-    context.textAlign = "center";
-    context.fillStyle = "#16a34a";
-    context.font = "bold 28px sans-serif";
-    context.fillText("全アルファベット達成！", canvasWidth / 2, canvas.height - 20);
-  }
-
-  const link = document.createElement("a");
-  link.download = "alphabet-challenge.png";
-  link.href = canvas.toDataURL("image/png");
-  link.click();
-}
-
-render();
+    render();
     return;
   }
 
   counts[letter] += 1;
   save();
   render();
-
-  // 26文字すべて揃った瞬間に達成判定
-  checkAchievement();
 
   // アルファベットを押したら人名入力ポップアップを開く
   openNameModal(letter);
@@ -577,14 +513,19 @@ function openNameModal(letter) {
   document.getElementById("nameInput").value = "";
   renderSavedNames();
   document.getElementById("nameModal").classList.add("show");
-  setTimeout(() => document.getElementById("nameInput").focus(), 50);
+
+  setTimeout(() => {
+    document.getElementById("nameInput").focus();
+  }, 50);
 }
 
 function renderSavedNames() {
   const element = document.getElementById("savedNames");
-  element.textContent = selectedLetter && names[selectedLetter].length
-    ? "登録済み： " + names[selectedLetter].join("、")
-    : "";
+
+  element.textContent =
+    selectedLetter && names[selectedLetter].length
+      ? "登録済み： " + names[selectedLetter].join("、")
+      : "";
 }
 
 function closeNameModal() {
@@ -622,112 +563,220 @@ function updateStats() {
   silverCountElement.textContent = silver;
   goldCountElement.textContent = gold;
   totalCountElement.textContent = total;
+
   barFillElement.style.width = `${(unique / 26) * 100}%`;
+
   const progressNumber = document.getElementById("progressNumber");
-  progressNumber.classList.remove("copper-text", "silver-text", "gold-text");
+  progressNumber.classList.remove(
+    "copper-text",
+    "silver-text",
+    "gold-text"
+  );
+
   if (unique === 26) {
-    const minimumLevel = Math.min(...letters.map(letter => getLevelNumber(counts[letter])));
-    if (minimumLevel >= 3) progressNumber.classList.add("gold-text");
-    else if (minimumLevel >= 2) progressNumber.classList.add("silver-text");
-    else progressNumber.classList.add("copper-text");
+    const minimumLevel = Math.min(
+      ...letters.map(letter => getLevelNumber(counts[letter]))
+    );
+
+    if (minimumLevel >= 3) {
+      progressNumber.classList.add("gold-text");
+    } else if (minimumLevel >= 2) {
+      progressNumber.classList.add("silver-text");
+    } else {
+      progressNumber.classList.add("copper-text");
+    }
   }
 }
 
 function getLevelNumber(count) {
-  return count >= 3 ? 3 : count >= 2 ? 2 : count >= 1 ? 1 : 0;
+  if (count >= 3) return 3;
+  if (count >= 2) return 2;
+  if (count >= 1) return 1;
+  return 0;
 }
 
-function checkAchievement() {
-  const copperComplete = letters.every(letter => counts[letter] >= 1);
-  const silverComplete = letters.every(letter => counts[letter] >= 2);
-  const goldComplete = letters.every(letter => counts[letter] >= 3);
+function exportAlphabetImage() {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
 
-  let newLevel = 0;
-  if (copperComplete) newLevel = 1;
-  if (silverComplete) newLevel = 2;
-  if (goldComplete) newLevel = 3;
+  const canvasWidth = 1400;
+  const itemWidth = 620;
+  const itemHeight = 135;
+  const horizontalGap = 40;
+  const verticalGap = 20;
+  const columns = 2;
+  const rows = Math.ceil(letters.length / columns);
+  const headerHeight = 250;
 
-  if (newLevel > achievementLevel) {
-    achievementLevel = newLevel;
-    showAchievement(newLevel);
-  }
-}
+  canvas.width = canvasWidth;
+  canvas.height =
+    headerHeight + rows * (itemHeight + verticalGap) + 60;
 
-function showAchievement(level) {
-  const title = level === 3 ? "ALL GOLD!" : level === 2 ? "ALL SILVER!" : "ALL COPPER!";
-  const text = level === 3 ? "26文字すべてが金になりました！" :
-               level === 2 ? "26文字すべてが銀になりました！" :
-               "26文字すべてが銅になりました！";
+  // 背景
+  context.fillStyle = "#f7f7f7";
+  context.fillRect(0, 0, canvas.width, canvas.height);
 
-  document.getElementById("achievementTitle").textContent = title;
-  document.getElementById("achievementText").textContent = text;
-  overlayElement.classList.add("show");
-  playAchievementSound();
-  createConfetti(level);
+  const uniqueCount = letters.filter(letter => counts[letter] >= 1).length;
 
-  setTimeout(() => overlayElement.classList.remove("show"), 2800);
-}
+  const participantCount = letters.reduce((total, letter) => {
+    return total + names[letter].length;
+  }, 0);
 
-function playAchievementSound() {
-  const AudioContext = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContext) return;
+  // 「達成」は全26文字が3回以上
+  const isAchieved = letters.every(letter => counts[letter] >= 3);
 
-  const audioContext = new AudioContext();
+  const totalCount = letters.reduce(
+    (sum, letter) => sum + counts[letter],
+    0
+  );
 
-  // 「いえーい！」っぽい明るいファンファーレ
-  const notes = [
-    { frequency: 523.25, time: 0.00, duration: 0.12 },
-    { frequency: 659.25, time: 0.10, duration: 0.12 },
-    { frequency: 783.99, time: 0.20, duration: 0.12 },
-    { frequency: 1046.5, time: 0.30, duration: 0.35 }
-  ];
+  // タイトル
+  context.textAlign = "center";
+  context.fillStyle = "#222";
+  context.font = "bold 44px sans-serif";
+  context.fillText(
+    "アルファベットチャレンジ",
+    canvasWidth / 2,
+    55
+  );
 
-  notes.forEach(note => {
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
+  // 達成 / 未達成
+  context.font = "bold 32px sans-serif";
+  context.fillStyle = isAchieved ? "#16a34a" : "#dc2626";
+  context.fillText(
+    isAchieved ? "達成" : "未達成",
+    canvasWidth / 2,
+    105
+  );
 
-    oscillator.type = "triangle";
-    oscillator.frequency.value = note.frequency;
+  // 集まった数
+  context.font = "bold 26px sans-serif";
+  context.fillStyle = "#333";
+  context.fillText(
+    `集まった数  ${uniqueCount} / 26`,
+    canvasWidth / 2 - 220,
+    155
+  );
 
-    const start = audioContext.currentTime + note.time;
+  // 参加者
+  context.fillText(
+    `参加者  ${participantCount} 人`,
+    canvasWidth / 2 + 220,
+    155
+  );
 
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(0.25, start + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + note.duration);
+  // 合計
+  context.font = "22px sans-serif";
+  context.fillStyle = "#666";
+  context.fillText(
+    `合計 ${totalCount} 回`,
+    canvasWidth / 2,
+    200
+  );
 
-    oscillator.connect(gain);
-    gain.connect(audioContext.destination);
+  // A～Z
+  letters.forEach((letter, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
 
-    oscillator.start(start);
-    oscillator.stop(start + note.duration);
+    const x =
+      40 + column * (itemWidth + horizontalGap);
+    const y =
+      headerHeight + row * (itemHeight + verticalGap);
+
+    // カード
+    context.fillStyle = "#ffffff";
+    context.strokeStyle = "#dddddd";
+    context.lineWidth = 2;
+
+    context.beginPath();
+    context.roundRect(
+      x,
+      y,
+      itemWidth,
+      itemHeight,
+      18
+    );
+    context.fill();
+    context.stroke();
+
+    // アルファベット
+    context.textAlign = "left";
+    context.fillStyle = "#222";
+    context.font = "bold 58px sans-serif";
+    context.fillText(letter, x + 24, y + 75);
+
+    // 参加者名
+    const savedNames = names[letter];
+    const nameText = savedNames.length
+      ? savedNames.join("、")
+      : "参加者なし";
+
+    let nameFontSize = 27;
+
+    context.font = `bold ${nameFontSize}px sans-serif`;
+
+    while (
+      nameFontSize > 16 &&
+      context.measureText(nameText).width > 350
+    ) {
+      nameFontSize -= 1;
+      context.font = `bold ${nameFontSize}px sans-serif`;
+    }
+
+    context.fillStyle = "#333";
+    context.fillText(
+      nameText,
+      x + 115,
+      y + 52
+    );
+
+    // 回数
+    context.fillStyle = "#777";
+    context.font = "20px sans-serif";
+    context.fillText(
+      `${counts[letter]} 回`,
+      x + 115,
+      y + 88
+    );
+
+    // 達成 / 未達成
+    context.font = "bold 23px sans-serif";
+
+    if (counts[letter] >= 3) {
+      context.fillStyle = "#16a34a";
+      context.fillText("達成", x + 500, y + 65);
+    } else {
+      context.fillStyle = "#dc2626";
+      context.fillText("未達成", x + 485, y + 65);
+    }
   });
 
-  setTimeout(() => audioContext.close(), 1000);
+  // PNGとして保存
+  const link = document.createElement("a");
+  link.download = "alphabet-challenge.png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
 }
 
-function createConfetti(level) {
-  const count = level === 3 ? 100 : 70;
-  for (let i = 0; i < count; i++) {
-    const piece = document.createElement("div");
-    piece.className = "confetti";
-    piece.style.background = `hsl(${Math.floor(Math.random() * 360)}, 85%, 65%)`;
-    piece.style.left = `${Math.random() * 100}vw`;
-    piece.style.setProperty("--drift", `${(Math.random() - 0.5) * 260}px`);
-    piece.style.animationDuration = `${2.2 + Math.random() * 2.2}s`;
-    piece.style.animationDelay = `${Math.random() * 0.4}s`;
-    document.body.appendChild(piece);
-    setTimeout(() => piece.remove(), 5000);
-  }
-}
+// 減らすモード
 document.getElementById("minusMode").addEventListener("click", event => {
   minusMode = !minusMode;
-  event.target.textContent = `減らすモード：${minusMode ? "ON" : "OFF"}`;
+  event.target.textContent =
+    `減らすモード：${minusMode ? "ON" : "OFF"}`;
 });
 
+// 保存
 document.getElementById("saveButton").addEventListener("click", () => {
   save();
 });
 
+// 画像で書き出す
+document
+  .getElementById("exportImageButton")
+  .addEventListener("click", exportAlphabetImage);
+
+// 全リセット
 document.getElementById("resetButton").addEventListener("click", () => {
   if (!confirm("カウントをすべて0にしますか？")) return;
 
@@ -735,28 +784,50 @@ document.getElementById("resetButton").addEventListener("click", () => {
     counts[letter] = 0;
     names[letter] = [];
   });
-  achievementLevel = 0;
+
   save();
   render();
 });
 
-document.getElementById("saveNameButton").addEventListener("click", addListenerName);
-document.getElementById("cancelNameButton").addEventListener("click", closeNameModal);
-document.getElementById("nameInput").addEventListener("keydown", event => {
-  if (event.key === "Enter") addListenerName();
-  if (event.key === "Escape") closeNameModal();
-});
-document.getElementById("nameModal").addEventListener("click", event => {
-  if (event.target.id === "nameModal") closeNameModal();
-});
+// 名前追加
+document
+  .getElementById("saveNameButton")
+  .addEventListener("click", addListenerName);
 
-overlayElement.addEventListener("click", () => {
-  overlayElement.classList.remove("show");
-});
+// 名前キャンセル
+document
+  .getElementById("cancelNameButton")
+  .addEventListener("click", closeNameModal);
 
-document.getElementById("exportImageButton").addEventListener("click", exportAlphabetImage);
+// 名前入力
+document
+  .getElementById("nameInput")
+  .addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      addListenerName();
+    }
 
+    if (event.key === "Escape") {
+      closeNameModal();
+    }
+  });
+
+// モーダル外をクリック
+document
+  .getElementById("nameModal")
+  .addEventListener("click", event => {
+    if (event.target.id === "nameModal") {
+      closeNameModal();
+    }
+  });
+
+// キーボード A～Z
 document.addEventListener("keydown", event => {
+  // 名前入力中はキーボード操作でカウントしない
+  if (document.activeElement === document.getElementById("nameInput")) {
+    return;
+  }
+
   const letter = event.key.toUpperCase();
 
   if (letters.includes(letter)) {
@@ -764,6 +835,8 @@ document.addEventListener("keydown", event => {
   }
 });
 
+// 最初に保存データを読み込んで表示
+loadData();
 render();
 </script>
 </body>
