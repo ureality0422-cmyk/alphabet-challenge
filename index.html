@@ -594,8 +594,17 @@ function closeNameModal() {
 
 function addListenerName() {
   if (!selectedLetter) return;
-  const name = document.getElementById("nameInput").value.trim();
-  if (name) names[selectedLetter].push(name);
+
+  const nameInput = document.getElementById("nameInput");
+  const name = nameInput.value.trim();
+
+  // 空白だけの場合は追加しない
+  if (!name) {
+    nameInput.focus();
+    return;
+  }
+
+  names[selectedLetter].push(name);
   save();
   closeNameModal();
   render();
