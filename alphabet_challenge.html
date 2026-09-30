@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alphabet Challenge</title>
+<style>
+  * { box-sizing: border-box; }
+
+  :root {
+    --bg: #111318;
+    --panel: #1b1e25;
+    --text: #f5f5f5;
+    --muted: #9da3ad;
+    --copper1: #b87333;
+    --copper2: #e0a06b;
+    --silver1: #8e939b;
+    --silver2: #f2f3f5;
+    --gold1: #c99600;
+    --gold2: #ffe36e;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 50% 0%, #292d38 0%, var(--bg) 45%);
+    color: var(--text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 28px;
+  }
+
+  .app {
+    width: min(1100px, 100%);
+  }
+
+  h1 {
+    text-align: center;
+    margin: 0 0 8px;
+    font-size: clamp(28px, 4vw, 46px);
+    letter-spacing: .08em;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+
+  .progress {
+    background: var(--panel);
+    border: 1px solid #30343d;
+    border-radius: 20px;
+    padding: 22px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .progress-number {
+    font-size: clamp(40px, 7vw, 72px);
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .progress-label {
+    color: var(--muted);
+    margin-top: 8px;
+  }
+
+  .bar {
+    height: 12px;
+    background: #30343d;
+    border-radius: 99px;
+    overflow: hidden;
+    margin-top: 18px;
+  }
+
+  .bar-fill {
+    width: 0%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #b87333, #d8dbe0, #ffd84d);
+    transition: width .25s ease;
+  }
+
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 22px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+    color: var(--muted);
+  }
+
+  .stats span {
+    font-weight: 700;
+  }
+
+  .alphabet {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+  }
+
+  button.letter {
+    position: relative;
+    min-height: 115px;
+    border: 2px solid #353944;
+    border-radius: 18px;
+    background: #20232b;
+    color: white;
+    cursor: pointer;
+    transition: transform .12s ease, filter .2s ease, box-shadow .2s ease;
+    overflow: hidden;
+  }
+
+  button.letter:hover {
+    filter: brightness(1.15);
+    transform: translateY(-2px);
+  }
+
+  button.letter:active {
+    transform: scale(.96);
+  }
+
+  .letter-name {
+    display: block;
+    font-size: clamp(30px, 4vw, 48px);
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .count {
+    display: block;
+    margin-top: 10px;
+    font-size: 17px;
+    font-weight: 700;
+    opacity: .85;
+  }
+
+  .name-list {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 14px;
+  }
+
+  .name-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--panel);
+    border: 1px solid #30343d;
+    border-radius: 12px;
+    padding: 9px 12px;
+  }
+
+  .name-letter {
+    width: 30px;
+    text-align: center;
+    font-weight: 900;
+    font-size: 20px;
+  }
+
+  .name-input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+  }
+
+  .name-input::placeholder {
+    color: #686e78;
+  }
+
+  .name-input:focus {
+    border-bottom: 1px solid #777e89;
+  }
+
+  @media (max-width: 560px) {
+    .name-list { grid-template-columns: 1fr; }
+  }
+
+  .copper {
+    background: linear-gradient(145deg, var(--copper1), #7f431d 55%, var(--copper2)) !important;
+    border-color: #e0a06b !important;
+    box-shadow: 0 0 18px rgba(184,115,51,.28);
+  }
+
+  .silver {
+    background: linear-gradient(145deg, var(--silver1), #5e626a 55%, var(--silver2)) !important;
+    border-color: #f2f3f5 !important;
+    color: #17191d !important;
+    box-shadow: 0 0 22px rgba(220,225,235,.32);
+  }
+
+  .gold {
+    background: linear-gradient(145deg, var(--gold1), #9c6c00 48%, var(--gold2)) !important;
+    border-color: #ffe36e !important;
+    color: #251b00 !important;
+    box-shadow: 0 0 28px rgba(255,215,50,.48);
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 22px;
+    flex-wrap: wrap;
+  }
+
+  .control {
+    border: 1px solid #454a55;
+    background: #242832;
+    color: white;
+    border-radius: 12px;
+    padding: 12px 20px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .control:hover { background: #303541; }
+
+  .reset {
+    border-color: #713d3d;
+    color: #ffb5b5;
+  }
+
+  .hint {
+    text-align: center;
+    color: #777d88;
+    margin-top: 18px;
+    font-size: 13px;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,.72);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease;
+    z-index: 10;
+  }
+
+  .overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .achievement {
+    text-align: center;
+    padding: 45px 60px;
+    border-radius: 30px;
+    background: linear-gradient(145deg, #252831, #111318);
+    border: 2px solid #ffe36e;
+    box-shadow: 0 0 70px rgba(255,215,50,.35);
+    transform: scale(.8);
+    transition: transform .25s ease;
+  }
+
+  .overlay.show .achievement { transform: scale(1); }
+
+  .achievement-medal {
+    font-size: 80px;
+  }
+
+  .achievement h2 {
+    font-size: clamp(30px, 6vw, 64px);
+    margin: 10px 0;
+  }
+
+  .achievement p {
+    color: #c5c9d0;
+    margin: 0;
+  }
+
+  @media (max-width: 800px) {
+    .alphabet { grid-template-columns: repeat(5, 1fr); }
+    button.letter { min-height: 100px; }
+  }
+
+  @media (max-width: 560px) {
+    body { padding: 15px; }
+    .alphabet { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    button.letter { min-height: 90px; border-radius: 13px; }
+  }
+</style>
+</head>
+<body>
+<audio id="achievementSound" src="きらーん2.mp3" preload="auto"></audio>
+<main class="app">
+  <h1>ALPHABET CHALLENGE</h1>
+  <div class="subtitle">リスナーの名前の頭文字を集めよう</div>
+
+  <section class="progress">
+    <div class="progress-number"><span id="uniqueCount">0</span> / 26</div>
+    <div class="progress-label">集めたアルファベット</div>
+    <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+    <div class="stats">
+      <div>銅 <span id="copperCount">0</span> / 26</div>
+      <div>銀 <span id="silverCount">0</span> / 26</div>
+      <div>金 <span id="goldCount">0</span> / 26</div>
+      <div>合計 <span id="totalCount">0</span> 回</div>
+    </div>
+  </section>
+
+  <section class="alphabet" id="alphabet"></section>
+
+  <section class="name-list" id="nameList"></section>
+
+  <div class="controls">
+    <button class="control" id="minusMode">減らすモード：OFF</button>
+    <button class="control" id="saveButton">保存</button>
+    <button class="control reset" id="resetButton">全リセット</button>
+  </div>
+
+  <div class="hint">
+    通常：クリックで +1　／　減らすモード：クリックで -1　／　キーボード A〜Z でも加算
+  </div>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="achievement">
+    <div class="achievement-medal" id="achievementMedal">🥉</div>
+    <h2 id="achievementTitle">全アルファベット達成！</h2>
+    <p id="achievementText">26文字すべて集まりました</p>
+  </div>
+</div>
+
+<script>
+const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const storageKey = "alphabetChallengeCounts";
+const namesStorageKey = "alphabetChallengeNames";
+
+let counts = JSON.parse(localStorage.getItem(storageKey) || "{}");
+let names = JSON.parse(localStorage.getItem(namesStorageKey) || "{}");
+let minusMode = false;
+let achievementLevel = 0;
+
+letters.forEach(letter => {
+  if (!Number.isFinite(counts[letter])) counts[letter] = 0;
+  if (typeof names[letter] !== "string") names[letter] = "";
+});
+
+const alphabetElement = document.getElementById("alphabet");
+const uniqueCountElement = document.getElementById("uniqueCount");
+const copperCountElement = document.getElementById("copperCount");
+const silverCountElement = document.getElementById("silverCount");
+const goldCountElement = document.getElementById("goldCount");
+const totalCountElement = document.getElementById("totalCount");
+const barFillElement = document.getElementById("barFill");
+const overlayElement = document.getElementById("overlay");
+
+function save() {
+  localStorage.setItem(storageKey, JSON.stringify(counts));
+  localStorage.setItem(namesStorageKey, JSON.stringify(names));
+}
+
+function getLevel(count) {
+  if (count >= 3) return "gold";
+  if (count >= 2) return "silver";
+  if (count >= 1) return "copper";
+  return "";
+}
+
+function render() {
+  alphabetElement.innerHTML = "";
+
+  letters.forEach(letter => {
+    const button = document.createElement("button");
+    button.className = "letter";
+
+    const level = getLevel(counts[letter]);
+    if (level) button.classList.add(level);
+
+    button.innerHTML = `
+        <span class="letter-name">${letter}</span>
+      <span class="count">${counts[letter]}回</span>
+    `;
+
+    button.addEventListener("click", () => changeCount(letter));
+    alphabetElement.appendChild(button);
+  });
+
+  updateStats();
+  renderNames();
+}
+
+function changeCount(letter) {
+  if (minusMode) {
+    counts[letter] = Math.max(0, counts[letter] - 1);
+  } else {
+    counts[letter] += 1;
+  }
+
+  save();
+  render();
+
+  if (!minusMode) checkAchievement();
+}
+
+function renderNames() {
+  const nameListElement = document.getElementById("nameList");
+  nameListElement.innerHTML = "";
+
+  letters.forEach(letter => {
+    const item = document.createElement("div");
+    item.className = "name-item";
+
+    const label = document.createElement("div");
+    label.className = "name-letter";
+    label.textContent = letter;
+
+    const input = document.createElement("input");
+    input.className = "name-input";
+    input.type = "text";
+    input.placeholder = "リスナー名をメモ";
+    input.value = names[letter];
+
+    input.addEventListener("input", () => {
+      names[letter] = input.value;
+      save();
+    });
+
+    item.appendChild(label);
+    item.appendChild(input);
+    nameListElement.appendChild(item);
+  });
+}
+
+function updateStats() {
+  const unique = letters.filter(letter => counts[letter] >= 1).length;
+  const copper = letters.filter(letter => counts[letter] >= 1).length;
+  const silver = letters.filter(letter => counts[letter] >= 2).length;
+  const gold = letters.filter(letter => counts[letter] >= 3).length;
+  const total = letters.reduce((sum, letter) => sum + counts[letter], 0);
+
+  uniqueCountElement.textContent = unique;
+  copperCountElement.textContent = copper;
+  silverCountElement.textContent = silver;
+  goldCountElement.textContent = gold;
+  totalCountElement.textContent = total;
+  barFillElement.style.width = `${(unique / 26) * 100}%`;
+}
+
+function checkAchievement() {
+  const copperComplete = letters.every(letter => counts[letter] >= 1);
+  const silverComplete = letters.every(letter => counts[letter] >= 2);
+  const goldComplete = letters.every(letter => counts[letter] >= 3);
+
+  let newLevel = 0;
+  if (copperComplete) newLevel = 1;
+  if (silverComplete) newLevel = 2;
+  if (goldComplete) newLevel = 3;
+
+  if (newLevel > achievementLevel) {
+    achievementLevel = newLevel;
+    showAchievement(newLevel);
+  }
+}
+
+function showAchievement(level) {
+  const medal =
+    level === 3 ? "🥇" :
+    level === 2 ? "🥈" : "🥉";
+
+  const title =
+    level === 3 ? "ALL GOLD!" :
+    level === 2 ? "ALL SILVER!" :
+    "ALL COPPER!";
+
+  const text =
+    level === 3 ? "26文字すべてが金になりました！" :
+    level === 2 ? "26文字すべてが銀になりました！" :
+    "26文字すべてが銅になりました！";
+
+  document.getElementById("achievementMedal").textContent = medal;
+  document.getElementById("achievementTitle").textContent = title;
+  document.getElementById("achievementText").textContent = text;
+
+  overlayElement.classList.add("show");
+
+  const achievementSound = document.getElementById("achievementSound");
+  achievementSound.currentTime = 0;
+  achievementSound.play().catch(() => {});
+
+  setTimeout(() => {
+    overlayElement.classList.remove("show");
+  }, 2800);
+}
+
+document.getElementById("minusMode").addEventListener("click", event => {
+  minusMode = !minusMode;
+  event.target.textContent = `減らすモード：${minusMode ? "ON" : "OFF"}`;
+});
+
+document.getElementById("saveButton").addEventListener("click", () => {
+  save();
+});
+
+document.getElementById("resetButton").addEventListener("click", () => {
+  if (!confirm("カウントをすべて0にしますか？")) return;
+
+  letters.forEach(letter => {
+    counts[letter] = 0;
+    names[letter] = "";
+  });
+  achievementLevel = 0;
+  save();
+  render();
+});
+
+overlayElement.addEventListener("click", () => {
+  overlayElement.classList.remove("show");
+});
+
+document.addEventListener("keydown", event => {
+  const letter = event.key.toUpperCase();
+
+  if (letters.includes(letter)) {
+    changeCount(letter);
+  }
+});
+
+render();
+</script>
+</body>
+</html>
