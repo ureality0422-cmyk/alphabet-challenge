@@ -327,9 +327,9 @@
     <div class="progress-label">集めたアルファベット</div>
     <div class="bar"><div class="bar-fill" id="barFill"></div></div>
     <div class="stats">
-      <div>銅 <span id="copperCount">0</span> / 26</div>
-      <div>銀 <span id="silverCount">0</span> / 26</div>
-      <div>金 <span id="goldCount">0</span> / 26</div>
+      <div>1回目 <span id="copperCount">0</span> / 26</div>
+      <div>2回目 <span id="silverCount">0</span> / 26</div>
+      <div>3回目 <span id="goldCount">0</span> / 26</div>
       <div>合計 <span id="totalCount">0</span> 回</div>
     </div>
   </section>
@@ -429,7 +429,6 @@ function changeCount(letter) {
   save();
   render();
   openNameModal(letter);
-  checkAchievement();
 }
 
 function renderNames() {
@@ -477,6 +476,10 @@ function renderSavedNames() {
 function closeNameModal() {
   document.getElementById("nameModal").classList.remove("show");
   selectedLetter = null;
+
+  // 名前入力ポップアップを閉じたあとに達成演出を表示する。
+  // 両方のポップアップが重なって、達成演出が見えなくなるのを防ぐ。
+  setTimeout(checkAchievement, 0);
 }
 
 function addListenerName() {
