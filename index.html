@@ -599,158 +599,270 @@ function exportAlphabetImage() {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
 
+  // アプリ画面に近いダークUIで画像を書き出す
   const canvasWidth = 1400;
-  const itemWidth = 620;
-  const itemHeight = 135;
-  const horizontalGap = 40;
-  const verticalGap = 20;
-  const columns = 2;
-  const rows = Math.ceil(letters.length / columns);
-  const headerHeight = 250;
+  const sidePadding = 40;
+  const cardGap = 16;
+  const columns = 6;
+  const cardWidth =
+    (canvasWidth - sidePadding * 2 - cardGap * (columns - 1)) / columns;
+  const cardHeight = 150;
+  const cardRows = Math.ceil(letters.length / columns);
+  const headerHeight = 330;
+  const footerHeight = 70;
 
   canvas.width = canvasWidth;
   canvas.height =
-    headerHeight + rows * (itemHeight + verticalGap) + 60;
+    headerHeight + cardRows * cardHeight + (cardRows - 1) * cardGap + footerHeight;
 
   // 背景
-  context.fillStyle = "#f7f7f7";
+  const backgroundGradient = context.createRadialGradient(
+    canvasWidth / 2,
+    0,
+    50,
+    canvasWidth / 2,
+    0,
+    900
+  );
+  backgroundGradient.addColorStop(0, "#292d38");
+  backgroundGradient.addColorStop(0.5, "#151820");
+  backgroundGradient.addColorStop(1, "#111318");
+  context.fillStyle = backgroundGradient;
   context.fillRect(0, 0, canvas.width, canvas.height);
 
   const uniqueCount = letters.filter(letter => counts[letter] >= 1).length;
-
   const participantCount = letters.reduce((total, letter) => {
     return total + names[letter].length;
   }, 0);
-
-  // 「達成」は全26文字が3回以上
-  const isAchieved = letters.every(letter => counts[letter] >= 3);
-
   const totalCount = letters.reduce(
     (sum, letter) => sum + counts[letter],
     0
   );
+  const isAchieved = letters.every(letter => counts[letter] >= 3);
+
+  // 共通の角丸長方形
+  function drawRoundRect(x, y, width, height, radius, fillStyle, strokeStyle, lineWidth = 1) {
+    context.beginPath();
+    context.roundRect(x, y, width, height, radius);
+    context.fillStyle = fillStyle;
+    context.fill();
+    context.strokeStyle = strokeStyle;
+    context.lineWidth = lineWidth;
+    context.stroke();
+  }
 
   // タイトル
   context.textAlign = "center";
-  context.fillStyle = "#222";
-  context.font = "bold 44px sans-serif";
-  context.fillText(
-    "アルファベットチャレンジ",
-    canvasWidth / 2,
-    55
+  context.textBaseline = "alphabetic";
+  context.fillStyle = "#f5f5f5";
+  context.font = "900 52px system-ui, sans-serif";
+  context.fillText("ALPHABET CHALLENGE", canvasWidth / 2, 62);
+
+  context.fillStyle = "#9da3ad";
+  context.font = "22px system-ui, sans-serif";
+  context.fillText("リスナーの名前の頭文字を集めよう", canvasWidth / 2, 98);
+
+  // 上部ステータスパネル
+  const panelX = 40;
+  const panelY = 125;
+  const panelWidth = canvasWidth - 80;
+  const panelHeight = 175;
+  drawRoundRect(
+    panelX,
+    panelY,
+    panelWidth,
+    panelHeight,
+    20,
+    "rgba(27,30,37,0.92)",
+    "#3a404c",
+    2
   );
 
-  // 達成 / 未達成
-  context.font = "bold 32px sans-serif";
-  context.fillStyle = isAchieved ? "#16a34a" : "#dc2626";
-  context.fillText(
-    isAchieved ? "達成" : "未達成",
-    canvasWidth / 2,
-    105
-  );
+  const statCenters = [
+    panelX + panelWidth * 0.16,
+    panelX + panelWidth * 0.39,
+    panelX + panelWidth * 0.62,
+    panelX + panelWidth * 0.84
+  ];
+
+  const labels = ["集まった数", "参加者", "達成状況", "合計"];
+  labels.forEach((label, index) => {
+    context.fillStyle = "#9da3ad";
+    context.font = "700 19px system-ui, sans-serif";
+    context.fillText(label, statCenters[index], panelY + 35);
+  });
+
+  // 区切り線
+  context.strokeStyle = "#3b414d";
+  context.lineWidth = 1;
+  [0.275, 0.505, 0.735].forEach(rate => {
+    const x = panelX + panelWidth * rate;
+    context.beginPath();
+    context.moveTo(x, panelY + 20);
+    context.lineTo(x, panelY + panelHeight - 20);
+    context.stroke();
+  });
 
   // 集まった数
-  context.font = "bold 26px sans-serif";
-  context.fillStyle = "#333";
-  context.fillText(
-    `集まった数  ${uniqueCount} / 26`,
-    canvasWidth / 2 - 220,
-    155
-  );
+  context.fillStyle = uniqueCount > 0 ? "#ffe36e" : "#f5f5f5";
+  context.font = "900 46px system-ui, sans-serif";
+  context.fillText(`${uniqueCount} / 26`, statCenters[0], panelY + 92);
 
   // 参加者
+  context.fillStyle = "#f5f5f5";
+  context.font = "900 40px system-ui, sans-serif";
+  context.fillText(`${participantCount} 人`, statCenters[1], panelY + 92);
+
+  // 達成状況
+  context.fillStyle = isAchieved ? "#ffe36e" : "#ff9a78";
+  context.font = "900 31px system-ui, sans-serif";
   context.fillText(
-    `参加者  ${participantCount} 人`,
-    canvasWidth / 2 + 220,
-    155
+    isAchieved ? "達成！！" : "達成ならず...!!",
+    statCenters[2],
+    panelY + 92
   );
 
   // 合計
-  context.font = "22px sans-serif";
-  context.fillStyle = "#666";
-  context.fillText(
-    `合計 ${totalCount} 回`,
-    canvasWidth / 2,
-    200
-  );
+  context.fillStyle = "#f5f5f5";
+  context.font = "900 40px system-ui, sans-serif";
+  context.fillText(`${totalCount} 回`, statCenters[3], panelY + 92);
 
-  // A～Z
+  // 進捗バー
+  const barX = panelX + 30;
+  const barY = panelY + 127;
+  const barWidth = panelWidth - 60;
+  const barHeight = 13;
+
+  drawRoundRect(barX, barY, barWidth, barHeight, 99, "#30343d", "#30343d", 0);
+
+  const progressWidth = barWidth * (uniqueCount / 26);
+  if (progressWidth > 0) {
+    const progressGradient = context.createLinearGradient(
+      barX,
+      barY,
+      barX + barWidth,
+      barY
+    );
+    progressGradient.addColorStop(0, "#b87333");
+    progressGradient.addColorStop(0.5, "#d8dbe0");
+    progressGradient.addColorStop(1, "#ffd84d");
+
+    drawRoundRect(
+      barX,
+      barY,
+      progressWidth,
+      barHeight,
+      99,
+      progressGradient,
+      progressGradient,
+      0
+    );
+  }
+
+  // アルファベットカード
   letters.forEach((letter, index) => {
     const column = index % columns;
     const row = Math.floor(index / columns);
+    const x = sidePadding + column * (cardWidth + cardGap);
+    const y = headerHeight + row * (cardHeight + cardGap);
+    const count = counts[letter];
+    const level = getLevel(count);
+    const savedNames = names[letter];
 
-    const x =
-      40 + column * (itemWidth + horizontalGap);
-    const y =
-      headerHeight + row * (itemHeight + verticalGap);
+    let cardBackground = "#1b1e25";
+    let cardBorder = "#353944";
+    let letterColor = "#8f96a3";
+    let countColor = "#9da3ad";
+    let shadowColor = null;
 
-    // カード
-    context.fillStyle = "#ffffff";
-    context.strokeStyle = "#dddddd";
-    context.lineWidth = 2;
+    if (level === "copper") {
+      cardBackground = "linear-gradient(145deg, #b87333, #7f431d 55%, #e0a06b)";
+      cardBorder = "#e0a06b";
+      letterColor = "#fff1df";
+      countColor = "#fff1df";
+      shadowColor = "rgba(184,115,51,0.35)";
+    } else if (level === "silver") {
+      cardBackground = "linear-gradient(145deg, #8e939b, #5e626a 55%, #f2f3f5)";
+      cardBorder = "#f2f3f5";
+      letterColor = "#ffffff";
+      countColor = "#ffffff";
+      shadowColor = "rgba(220,225,235,0.38)";
+    } else if (level === "gold") {
+      cardBackground = "linear-gradient(145deg, #c99600, #9c6c00 48%, #ffe36e)";
+      cardBorder = "#ffe36e";
+      letterColor = "#fff8cf";
+      countColor = "#fff8cf";
+      shadowColor = "rgba(255,215,50,0.45)";
+    }
 
-    context.beginPath();
-    context.roundRect(
+    if (shadowColor) {
+      context.shadowColor = shadowColor;
+      context.shadowBlur = level === "gold" ? 22 : 16;
+    } else {
+      context.shadowColor = "transparent";
+      context.shadowBlur = 0;
+    }
+
+    drawRoundRect(
       x,
       y,
-      itemWidth,
-      itemHeight,
-      18
+      cardWidth,
+      cardHeight,
+      18,
+      cardBackground,
+      cardBorder,
+      2
     );
-    context.fill();
-    context.stroke();
+    context.shadowColor = "transparent";
+    context.shadowBlur = 0;
 
     // アルファベット
-    context.textAlign = "left";
-    context.fillStyle = "#222";
-    context.font = "bold 58px sans-serif";
-    context.fillText(letter, x + 24, y + 75);
-
-    // 参加者名
-    const savedNames = names[letter];
-    const nameText = savedNames.length
-      ? savedNames.join("、")
-      : "参加者なし";
-
-    let nameFontSize = 27;
-
-    context.font = `bold ${nameFontSize}px sans-serif`;
-
-    while (
-      nameFontSize > 16 &&
-      context.measureText(nameText).width > 350
-    ) {
-      nameFontSize -= 1;
-      context.font = `bold ${nameFontSize}px sans-serif`;
-    }
-
-    context.fillStyle = "#333";
-    context.fillText(
-      nameText,
-      x + 115,
-      y + 52
-    );
+    context.textAlign = "center";
+    context.fillStyle = letterColor;
+    context.font = "900 50px system-ui, sans-serif";
+    context.fillText(letter, x + cardWidth / 2, y + 58);
 
     // 回数
-    context.fillStyle = "#777";
-    context.font = "20px sans-serif";
-    context.fillText(
-      `${counts[letter]} 回`,
-      x + 115,
-      y + 88
-    );
+    context.fillStyle = countColor;
+    context.font = "700 18px system-ui, sans-serif";
+    context.fillText(`${count}回`, x + cardWidth / 2, y + 84);
 
-    // 達成 / 未達成
-    context.font = "bold 23px sans-serif";
+    // 名前：参加者なしなら空白
+    if (savedNames.length > 0) {
+      const nameText = savedNames.join("・");
+      let nameFontSize = 18;
+      context.font = `700 ${nameFontSize}px system-ui, sans-serif`;
 
-    if (counts[letter] >= 3) {
-      context.fillStyle = "#16a34a";
-      context.fillText("達成", x + 500, y + 65);
-    } else {
-      context.fillStyle = "#dc2626";
-      context.fillText("未達成", x + 485, y + 65);
+      while (
+        nameFontSize > 12 &&
+        context.measureText(nameText).width > cardWidth - 24
+      ) {
+        nameFontSize -= 1;
+        context.font = `700 ${nameFontSize}px system-ui, sans-serif`;
+      }
+
+      context.fillStyle = level ? "#fffaf0" : "#c5c9d0";
+      context.fillText(nameText, x + cardWidth / 2, y + 112);
+    }
+
+    // 3回以上ならカード内にも達成表示
+    if (count >= 3) {
+      context.fillStyle = "#fff8cf";
+      context.font = "900 15px system-ui, sans-serif";
+      context.fillText("達成！！", x + cardWidth / 2, y + 137);
     }
   });
+
+  // フッター
+  const footerY = canvas.height - 28;
+  context.textAlign = "center";
+  context.fillStyle = "#777d88";
+  context.font = "14px system-ui, sans-serif";
+  context.fillText(
+    "※ 画像は現在の進行状況を表示しています。",
+    canvasWidth / 2,
+    footerY
+  );
 
   // PNGとして保存
   const link = document.createElement("a");
