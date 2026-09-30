@@ -69,6 +69,10 @@
     margin-top: 8px;
   }
 
+  .progress-number.copper-text { color: #e0a06b; text-shadow: 0 0 18px rgba(184,115,51,.45); }
+  .progress-number.silver-text { color: #f2f3f5; text-shadow: 0 0 18px rgba(220,225,235,.5); }
+  .progress-number.gold-text { color: #ffe36e; text-shadow: 0 0 22px rgba(255,215,50,.65); }
+
   .bar {
     height: 12px;
     background: #30343d;
@@ -284,6 +288,22 @@
     margin: 0;
   }
 
+
+  .name-modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.72);opacity:0;pointer-events:none;transition:opacity .18s ease;z-index:30}
+  .name-modal.show{opacity:1;pointer-events:auto}
+  .name-dialog{width:min(440px,100%);background:#1b1e25;border:1px solid #454a55;border-radius:22px;padding:26px;box-shadow:0 20px 70px rgba(0,0,0,.5)}
+  .name-dialog h2{margin:0 0 6px;font-size:26px}
+  .name-dialog p{margin:0 0 18px;color:#9da3ad}
+  .selected-letter{color:#ffe36e;font-weight:900}
+  .name-dialog input{width:100%;border:1px solid #4a505b;background:#111318;color:white;border-radius:12px;padding:14px;font-size:18px;outline:none}
+  .name-dialog input:focus{border-color:#8b929e}
+  .modal-buttons{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+  .name-dialog .modal-button{border:1px solid #454a55;background:#292d36;color:white;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer}
+  .name-dialog .modal-button.primary{background:#f0c52b;color:#211900;border-color:#ffe36e}
+  .saved-names{margin-top:8px;color:#9da3ad;font-size:13px;line-height:1.6;max-height:100px;overflow-y:auto}
+  .confetti{position:fixed;top:-30px;width:9px;height:14px;z-index:25;pointer-events:none;animation:confetti-fall linear forwards}
+  @keyframes confetti-fall{0%{transform:translate3d(0,-20px,0) rotate(0deg);opacity:1}100%{transform:translate3d(var(--drift),110vh,0) rotate(720deg);opacity:0}}
+
   @media (max-width: 800px) {
     .alphabet { grid-template-columns: repeat(5, 1fr); }
     button.letter { min-height: 100px; }
@@ -303,7 +323,7 @@
   <div class="subtitle">リスナーの名前の頭文字を集めよう</div>
 
   <section class="progress">
-    <div class="progress-number"><span id="uniqueCount">0</span> / 26</div>
+    <div class="progress-number" id="progressNumber"><span id="uniqueCount">0</span> / 26</div>
     <div class="progress-label">集めたアルファベット</div>
     <div class="bar"><div class="bar-fill" id="barFill"></div></div>
     <div class="stats">
@@ -331,7 +351,6 @@
 
 <div class="overlay" id="overlay">
   <div class="achievement">
-    <div class="achievement-medal" id="achievementMedal">🥉</div>
     <h2 id="achievementTitle">全アルファベット達成！</h2>
     <p id="achievementText">26文字すべて集まりました</p>
   </div>
@@ -346,10 +365,12 @@ let counts = JSON.parse(localStorage.getItem(storageKey) || "{}");
 let names = JSON.parse(localStorage.getItem(namesStorageKey) || "{}");
 let minusMode = false;
 let achievementLevel = 0;
+let selectedLetter = null;
 
 letters.forEach(letter => {
   if (!Number.isFinite(counts[letter])) counts[letter] = 0;
-  if (typeof names[letter] !== "string") names[letter] = "";
+  if (typeof names[letter] === "string") names[letter] = names[letter] ? [names[letter]] : [];
+  if (!Array.isArray(names[letter])) names[letter] = [];
 });
 
 const alphabetElement = document.getElementById("alphabet");
@@ -399,14 +420,16 @@ function render() {
 function changeCount(letter) {
   if (minusMode) {
     counts[letter] = Math.max(0, counts[letter] - 1);
-  } else {
-    counts[letter] += 1;
+    save();
+    render();
+    return;
   }
 
+  counts[letter] += 1;
   save();
   render();
-
-  if (!minusMode) checkAchievement();
+  openNameModal(letter);
+  checkAchievement();
 }
 
 function renderNames() {
@@ -424,18 +447,45 @@ function renderNames() {
     const input = document.createElement("input");
     input.className = "name-input";
     input.type = "text";
-    input.placeholder = "リスナー名をメモ";
-    input.value = names[letter];
-
-    input.addEventListener("input", () => {
-      names[letter] = input.value;
-      save();
-    });
+    input.readOnly = true;
+    input.placeholder = "アルファベットを押して追加";
+    input.value = names[letter].join("、");
+    input.addEventListener("click", () => openNameModal(letter));
 
     item.appendChild(label);
     item.appendChild(input);
     nameListElement.appendChild(item);
   });
+}
+
+function openNameModal(letter) {
+  selectedLetter = letter;
+  document.getElementById("selectedLetter").textContent = letter;
+  document.getElementById("nameInput").value = "";
+  renderSavedNames();
+  document.getElementById("nameModal").classList.add("show");
+  setTimeout(() => document.getElementById("nameInput").focus(), 50);
+}
+
+function renderSavedNames() {
+  const element = document.getElementById("savedNames");
+  element.textContent = selectedLetter && names[selectedLetter].length
+    ? "登録済み： " + names[selectedLetter].join("、")
+    : "";
+}
+
+function closeNameModal() {
+  document.getElementById("nameModal").classList.remove("show");
+  selectedLetter = null;
+}
+
+function addListenerName() {
+  if (!selectedLetter) return;
+  const name = document.getElementById("nameInput").value.trim();
+  if (name) names[selectedLetter].push(name);
+  save();
+  closeNameModal();
+  render();
 }
 
 function updateStats() {
@@ -451,6 +501,18 @@ function updateStats() {
   goldCountElement.textContent = gold;
   totalCountElement.textContent = total;
   barFillElement.style.width = `${(unique / 26) * 100}%`;
+  const progressNumber = document.getElementById("progressNumber");
+  progressNumber.classList.remove("copper-text", "silver-text", "gold-text");
+  if (unique === 26) {
+    const minimumLevel = Math.min(...letters.map(letter => getLevelNumber(counts[letter])));
+    if (minimumLevel >= 3) progressNumber.classList.add("gold-text");
+    else if (minimumLevel >= 2) progressNumber.classList.add("silver-text");
+    else progressNumber.classList.add("copper-text");
+  }
+}
+
+function getLevelNumber(count) {
+  return count >= 3 ? 3 : count >= 2 ? 2 : count >= 1 ? 1 : 0;
 }
 
 function checkAchievement() {
@@ -470,35 +532,55 @@ function checkAchievement() {
 }
 
 function showAchievement(level) {
-  const medal =
-    level === 3 ? "🥇" :
-    level === 2 ? "🥈" : "🥉";
+  const title = level === 3 ? "ALL GOLD!" : level === 2 ? "ALL SILVER!" : "ALL COPPER!";
+  const text = level === 3 ? "26文字すべてが金になりました！" :
+               level === 2 ? "26文字すべてが銀になりました！" :
+               "26文字すべてが銅になりました！";
 
-  const title =
-    level === 3 ? "ALL GOLD!" :
-    level === 2 ? "ALL SILVER!" :
-    "ALL COPPER!";
-
-  const text =
-    level === 3 ? "26文字すべてが金になりました！" :
-    level === 2 ? "26文字すべてが銀になりました！" :
-    "26文字すべてが銅になりました！";
-
-  document.getElementById("achievementMedal").textContent = medal;
   document.getElementById("achievementTitle").textContent = title;
   document.getElementById("achievementText").textContent = text;
-
   overlayElement.classList.add("show");
+  playAchievementSound();
+  createConfetti(level);
 
-  const achievementSound = document.getElementById("achievementSound");
-  achievementSound.currentTime = 0;
-  achievementSound.play().catch(() => {});
-
-  setTimeout(() => {
-    overlayElement.classList.remove("show");
-  }, 2800);
+  setTimeout(() => overlayElement.classList.remove("show"), 2800);
 }
 
+function playAchievementSound() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  const audioContext = new AudioContext();
+  [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = frequency;
+    const start = audioContext.currentTime + index * 0.11;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.16, start + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(start);
+    oscillator.stop(start + 0.3);
+  });
+  setTimeout(() => audioContext.close(), 900);
+}
+
+function createConfetti(level) {
+  const count = level === 3 ? 100 : 70;
+  for (let i = 0; i < count; i++) {
+    const piece = document.createElement("div");
+    piece.className = "confetti";
+    piece.style.background = `hsl(${Math.floor(Math.random() * 360)}, 85%, 65%)`;
+    piece.style.left = `${Math.random() * 100}vw`;
+    piece.style.setProperty("--drift", `${(Math.random() - 0.5) * 260}px`);
+    piece.style.animationDuration = `${2.2 + Math.random() * 2.2}s`;
+    piece.style.animationDelay = `${Math.random() * 0.4}s`;
+    document.body.appendChild(piece);
+    setTimeout(() => piece.remove(), 5000);
+  }
+}
 document.getElementById("minusMode").addEventListener("click", event => {
   minusMode = !minusMode;
   event.target.textContent = `減らすモード：${minusMode ? "ON" : "OFF"}`;
@@ -518,6 +600,16 @@ document.getElementById("resetButton").addEventListener("click", () => {
   achievementLevel = 0;
   save();
   render();
+});
+
+document.getElementById("saveNameButton").addEventListener("click", addListenerName);
+document.getElementById("cancelNameButton").addEventListener("click", closeNameModal);
+document.getElementById("nameInput").addEventListener("keydown", event => {
+  if (event.key === "Enter") addListenerName();
+  if (event.key === "Escape") closeNameModal();
+});
+document.getElementById("nameModal").addEventListener("click", event => {
+  if (event.target.id === "nameModal") closeNameModal();
 });
 
 overlayElement.addEventListener("click", () => {
