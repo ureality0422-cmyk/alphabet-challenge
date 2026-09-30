@@ -314,6 +314,15 @@
     .alphabet { grid-template-columns: repeat(4, 1fr); gap: 8px; }
     button.letter { min-height: 90px; border-radius: 13px; }
   }
+
+    #exportImageButton {
+      background: #4f46e5;
+      color: #fff;
+    }
+
+    #exportImageButton:hover {
+      opacity: 0.9;
+    }
 </style>
 </head>
 <body>
@@ -435,7 +444,93 @@ function changeCount(letter) {
   if (minusMode) {
     counts[letter] = Math.max(0, counts[letter] - 1);
     save();
-    render();
+    
+function exportAlphabetImage() {
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+
+  const canvasWidth = 1400;
+  const itemWidth = 620;
+  const itemHeight = 125;
+  const horizontalGap = 40;
+  const verticalGap = 20;
+  const columns = 2;
+  const rows = Math.ceil(letters.length / columns);
+  const headerHeight = 150;
+
+  canvas.width = canvasWidth;
+  canvas.height = headerHeight + rows * (itemHeight + verticalGap) + 60;
+
+  context.fillStyle = "#f7f7f7";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  context.fillStyle = "#222";
+  context.textAlign = "center";
+  context.font = "bold 44px sans-serif";
+  context.fillText("アルファベットチャレンジ", canvasWidth / 2, 62);
+
+  const totalCount = letters.reduce((sum, letter) => sum + counts[letter], 0);
+  context.font = "24px sans-serif";
+  context.fillStyle = "#555";
+  context.fillText(`合計 ${totalCount} 回`, canvasWidth / 2, 105);
+
+  letters.forEach((letter, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const x = 40 + column * (itemWidth + horizontalGap);
+    const y = headerHeight + row * (itemHeight + verticalGap);
+
+    context.fillStyle = "#fff";
+    context.strokeStyle = "#ddd";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.roundRect(x, y, itemWidth, itemHeight, 18);
+    context.fill();
+    context.stroke();
+
+    context.textAlign = "left";
+    context.fillStyle = "#222";
+    context.font = "bold 58px sans-serif";
+    context.fillText(letter, x + 24, y + 70);
+
+    const savedNames = Array.isArray(names[letter]) ? names[letter] : [];
+    const nameText = savedNames.length ? savedNames.join("、") : "名前未登録";
+
+    let nameFontSize = 27;
+    context.font = `bold ${nameFontSize}px sans-serif`;
+    while (nameFontSize > 17 && context.measureText(nameText).width > 360) {
+      nameFontSize--;
+      context.font = `bold ${nameFontSize}px sans-serif`;
+    }
+
+    context.fillStyle = "#333";
+    context.fillText(nameText, x + 115, y + 55);
+
+    context.fillStyle = "#777";
+    context.font = "20px sans-serif";
+    context.fillText(`${counts[letter]} 回`, x + 115, y + 88);
+
+    if (counts[letter] >= 3) {
+      context.fillStyle = "#16a34a";
+      context.font = "bold 24px sans-serif";
+      context.fillText("達成", x + 500, y + 70);
+    }
+  });
+
+  if (letters.every(letter => counts[letter] >= 3)) {
+    context.textAlign = "center";
+    context.fillStyle = "#16a34a";
+    context.font = "bold 28px sans-serif";
+    context.fillText("全アルファベット達成！", canvasWidth / 2, canvas.height - 20);
+  }
+
+  const link = document.createElement("a");
+  link.download = "alphabet-challenge.png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+}
+
+render();
     return;
   }
 
@@ -649,6 +744,8 @@ document.getElementById("nameModal").addEventListener("click", event => {
 overlayElement.addEventListener("click", () => {
   overlayElement.classList.remove("show");
 });
+
+document.getElementById("exportImageButton").addEventListener("click", exportAlphabetImage);
 
 document.addEventListener("keydown", event => {
   const letter = event.key.toUpperCase();
