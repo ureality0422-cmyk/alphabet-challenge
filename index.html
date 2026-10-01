@@ -315,43 +315,19 @@
     button.letter { min-height: 90px; border-radius: 13px; }
   }
 
-    #exportImageButton {
-      background: #4f46e5;
-      color: #fff;
-    }
-
-    #exportImageButton:hover {
-      opacity: 0.9;
-    }
-
-  .saved-name-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin: 6px 0;
-    padding: 6px 8px;
-    border-radius: 8px;
-    background: rgba(255,255,255,0.04);
+  /* 金・銀の文字を画像書き出しでも読みやすくする */
+  .letter.silver .letter-name, .letter.silver .count {
+    color: #ffffff !important;
+    text-shadow: 0 2px 3px rgba(0,0,0,.75), 0 0 2px rgba(0,0,0,.55);
+    font-weight: 800;
   }
-
-  .saved-name-row span {
-    flex: 1;
-    min-width: 0;
-    overflow-wrap: anywhere;
+  .letter.gold .letter-name, .letter.gold .count {
+    color: #241800 !important;
+    text-shadow: 0 1px 2px rgba(255,255,255,.45);
+    font-weight: 900;
   }
-
-  .saved-name-action {
-    border: 1px solid #555c68;
-    background: #2b2f38;
-    color: #e6e8ec;
-    border-radius: 7px;
-    padding: 4px 8px;
-    cursor: pointer;
-  }
-
-  .saved-name-action.delete {
-    color: #ffb4a0;
-  }
+  .saved-name-row { display:flex; align-items:center; gap:8px; margin:4px 0; }
+  .saved-name-delete { border:0; border-radius:8px; padding:3px 8px; cursor:pointer; background:#8b3030; color:#fff; font-weight:700; }
 
 </style>
 </head>
@@ -380,8 +356,12 @@
   <div class="controls">
     <button class="control" id="minusMode">減らすモード：OFF</button>
     <button class="control" id="saveButton">保存</button>
-    <button class="control" id="exportImageButton">画像で書き出す</button>
     <button class="control reset" id="resetButton">全リセット</button>
+  </div>
+
+  <div class="share-tools" style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+    <button class="control" id="copyShareButton">データをコピー</button>
+    <button class="control" id="importShareButton">データを読み込む</button>
   </div>
 
   <div class="hint">
@@ -396,60 +376,22 @@
   </div>
 </div>
 
-
-<div class="name-modal" id="nameModal">
-  <div class="name-dialog">
-    <h2><span class="selected-letter" id="selectedLetter">A</span> の人の名前</h2>
-    <p>名前を追加するか、登録済みの名前を変更できます。</p>
-    <input id="nameInput" type="text" placeholder="人の名前を入力">
-    <div class="saved-names" id="savedNames"></div>
-    <div class="modal-buttons">
-      <button class="modal-button" id="cancelNameButton">キャンセル</button>
-      <button class="modal-button primary" id="saveNameButton">追加</button>
-    </div>
-  </div>
-</div>
-
 <script>
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const storageKey = "alphabetChallengeCounts";
 const namesStorageKey = "alphabetChallengeNames";
 
-let counts = {};
-let names = {};
+let counts = JSON.parse(localStorage.getItem(storageKey) || "{}");
+let names = JSON.parse(localStorage.getItem(namesStorageKey) || "{}");
 let minusMode = false;
+let achievementLevel = 0;
 let selectedLetter = null;
-let editingNameIndex = null;
 
-function loadData() {
-  try {
-    counts = JSON.parse(localStorage.getItem(storageKey) || "{}");
-  } catch {
-    counts = {};
-  }
-
-  try {
-    names = JSON.parse(localStorage.getItem(namesStorageKey) || "{}");
-  } catch {
-    names = {};
-  }
-
-  letters.forEach(letter => {
-    if (!Number.isFinite(counts[letter])) {
-      counts[letter] = 0;
-    }
-
-    if (typeof names[letter] === "string") {
-      names[letter] = names[letter] ? [names[letter]] : [];
-    }
-
-    if (!Array.isArray(names[letter])) {
-      names[letter] = [];
-    }
-  });
-
-  save();
-}
+letters.forEach(letter => {
+  if (!Number.isFinite(counts[letter])) counts[letter] = 0;
+  if (typeof names[letter] === "string") names[letter] = names[letter] ? [names[letter]] : [];
+  if (!Array.isArray(names[letter])) names[letter] = [];
+});
 
 const alphabetElement = document.getElementById("alphabet");
 const uniqueCountElement = document.getElementById("uniqueCount");
@@ -458,6 +400,7 @@ const silverCountElement = document.getElementById("silverCount");
 const goldCountElement = document.getElementById("goldCount");
 const totalCountElement = document.getElementById("totalCount");
 const barFillElement = document.getElementById("barFill");
+const overlayElement = document.getElementById("overlay");
 
 function save() {
   localStorage.setItem(storageKey, JSON.stringify(counts));
@@ -479,12 +422,10 @@ function render() {
     button.className = "letter";
 
     const level = getLevel(counts[letter]);
-    if (level) {
-      button.classList.add(level);
-    }
+    if (level) button.classList.add(level);
 
     button.innerHTML = `
-      <span class="letter-name">${letter}</span>
+        <span class="letter-name">${letter}</span>
       <span class="count">${counts[letter]}回</span>
     `;
 
@@ -501,14 +442,13 @@ function changeCount(letter) {
     counts[letter] = Math.max(0, counts[letter] - 1);
     save();
     render();
+    syncAchievementLevel();
     return;
   }
 
   counts[letter] += 1;
   save();
   render();
-
-  // アルファベットを押したら人名入力ポップアップを開く
   openNameModal(letter);
 }
 
@@ -540,30 +480,20 @@ function renderNames() {
 
 function openNameModal(letter) {
   selectedLetter = letter;
-  editingNameIndex = null;
-
   document.getElementById("selectedLetter").textContent = letter;
   document.getElementById("nameInput").value = "";
-  document.getElementById("saveNameButton").textContent = "追加";
   renderSavedNames();
   document.getElementById("nameModal").classList.add("show");
-
-  setTimeout(() => {
-    document.getElementById("nameInput").focus();
-  }, 50);
+  setTimeout(() => document.getElementById("nameInput").focus(), 50);
 }
 
 function renderSavedNames() {
   const element = document.getElementById("savedNames");
   element.innerHTML = "";
-
-  if (!selectedLetter || names[selectedLetter].length === 0) {
-    return;
-  }
+  if (!selectedLetter || !names[selectedLetter].length) return;
 
   const title = document.createElement("div");
-  title.textContent = "登録済み";
-  title.style.marginBottom = "6px";
+  title.textContent = "登録済み：";
   element.appendChild(title);
 
   names[selectedLetter].forEach((name, index) => {
@@ -573,33 +503,21 @@ function renderSavedNames() {
     const nameText = document.createElement("span");
     nameText.textContent = name;
 
-    const editButton = document.createElement("button");
-    editButton.type = "button";
-    editButton.className = "saved-name-action";
-    editButton.textContent = "変更";
-    editButton.addEventListener("click", () => {
-      editingNameIndex = index;
-      document.getElementById("nameInput").value = name;
-      document.getElementById("saveNameButton").textContent = "変更";
-      document.getElementById("nameInput").focus();
-    });
-
     const deleteButton = document.createElement("button");
     deleteButton.type = "button";
-    deleteButton.className = "saved-name-action delete";
+    deleteButton.className = "saved-name-delete";
     deleteButton.textContent = "削除";
-    deleteButton.addEventListener("click", () => {
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
       names[selectedLetter].splice(index, 1);
-      editingNameIndex = null;
-      document.getElementById("nameInput").value = "";
-      document.getElementById("saveNameButton").textContent = "追加";
+      counts[selectedLetter] = Math.max(0, counts[selectedLetter] - 1);
       save();
-      renderSavedNames();
       render();
+      renderSavedNames();
+      syncAchievementLevel();
     });
 
     row.appendChild(nameText);
-    row.appendChild(editButton);
     row.appendChild(deleteButton);
     element.appendChild(row);
   });
@@ -608,30 +526,16 @@ function renderSavedNames() {
 function closeNameModal() {
   document.getElementById("nameModal").classList.remove("show");
   selectedLetter = null;
-  editingNameIndex = null;
+
+  // 名前入力ポップアップを閉じた直後に達成判定する。
+  // 26文字目を登録したタイミングでも確実に達成ポップアップを表示する。
+  checkAchievement();
 }
 
 function addListenerName() {
   if (!selectedLetter) return;
-
-  const nameInput = document.getElementById("nameInput");
-  const name = nameInput.value
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
-    .trim();
-
-  // 空白・見えない文字だけの場合は登録しない
-  if (!name) {
-    nameInput.value = "";
-    nameInput.focus();
-    return;
-  }
-
-  if (editingNameIndex !== null) {
-    names[selectedLetter][editingNameIndex] = name;
-  } else {
-    names[selectedLetter].push(name);
-  }
-
+  const name = document.getElementById("nameInput").value.trim();
+  if (name) names[selectedLetter].push(name);
   save();
   closeNameModal();
   render();
@@ -649,415 +553,133 @@ function updateStats() {
   silverCountElement.textContent = silver;
   goldCountElement.textContent = gold;
   totalCountElement.textContent = total;
-
   barFillElement.style.width = `${(unique / 26) * 100}%`;
-
   const progressNumber = document.getElementById("progressNumber");
-  progressNumber.classList.remove(
-    "copper-text",
-    "silver-text",
-    "gold-text"
-  );
-
+  progressNumber.classList.remove("copper-text", "silver-text", "gold-text");
   if (unique === 26) {
-    const minimumLevel = Math.min(
-      ...letters.map(letter => getLevelNumber(counts[letter]))
-    );
-
-    if (minimumLevel >= 3) {
-      progressNumber.classList.add("gold-text");
-    } else if (minimumLevel >= 2) {
-      progressNumber.classList.add("silver-text");
-    } else {
-      progressNumber.classList.add("copper-text");
-    }
+    const minimumLevel = Math.min(...letters.map(letter => getLevelNumber(counts[letter])));
+    if (minimumLevel >= 3) progressNumber.classList.add("gold-text");
+    else if (minimumLevel >= 2) progressNumber.classList.add("silver-text");
+    else progressNumber.classList.add("copper-text");
   }
 }
 
 function getLevelNumber(count) {
-  if (count >= 3) return 3;
-  if (count >= 2) return 2;
-  if (count >= 1) return 1;
-  return 0;
+  return count >= 3 ? 3 : count >= 2 ? 2 : count >= 1 ? 1 : 0;
 }
 
-function exportAlphabetImage() {
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-
-  // アプリ画面に近いダークUIで画像を書き出す
-  const canvasWidth = 1400;
-  const sidePadding = 40;
-  const cardGap = 16;
-  const columns = 6;
-  const cardWidth =
-    (canvasWidth - sidePadding * 2 - cardGap * (columns - 1)) / columns;
-  const cardHeight = 150;
-  const cardRows = Math.ceil(letters.length / columns);
-  const headerHeight = 330;
-  const footerHeight = 70;
-
-  canvas.width = canvasWidth;
-  canvas.height =
-    headerHeight + cardRows * cardHeight + (cardRows - 1) * cardGap + footerHeight;
-
-  // 背景
-  const backgroundGradient = context.createRadialGradient(
-    canvasWidth / 2,
-    0,
-    50,
-    canvasWidth / 2,
-    0,
-    900
-  );
-  backgroundGradient.addColorStop(0, "#292d38");
-  backgroundGradient.addColorStop(0.5, "#151820");
-  backgroundGradient.addColorStop(1, "#111318");
-  context.fillStyle = backgroundGradient;
-  context.fillRect(0, 0, canvas.width, canvas.height);
-
-  const uniqueCount = letters.filter(letter => counts[letter] >= 1).length;
-  const participantCount = letters.reduce((total, letter) => {
-    return total + names[letter].length;
-  }, 0);
-  const totalCount = letters.reduce(
-    (sum, letter) => sum + counts[letter],
-    0
-  );
-  const isAchieved = letters.every(letter => counts[letter] >= 3);
-
-  // 共通の角丸長方形
-  function drawRoundRect(x, y, width, height, radius, fillStyle, strokeStyle, lineWidth = 1) {
-    context.beginPath();
-    context.roundRect(x, y, width, height, radius);
-    context.fillStyle = fillStyle;
-    context.fill();
-    context.strokeStyle = strokeStyle;
-    context.lineWidth = lineWidth;
-    context.stroke();
-  }
-
-  // タイトル
-  context.textAlign = "center";
-  context.textBaseline = "alphabetic";
-  context.fillStyle = "#f5f5f5";
-  context.font = "900 52px system-ui, sans-serif";
-  context.fillText("ALPHABET CHALLENGE", canvasWidth / 2, 62);
-
-  context.fillStyle = "#9da3ad";
-  context.font = "22px system-ui, sans-serif";
-  context.fillText("リスナーの名前の頭文字を集めよう", canvasWidth / 2, 98);
-
-  // 上部ステータスパネル
-  const panelX = 40;
-  const panelY = 125;
-  const panelWidth = canvasWidth - 80;
-  const panelHeight = 175;
-  drawRoundRect(
-    panelX,
-    panelY,
-    panelWidth,
-    panelHeight,
-    20,
-    "rgba(27,30,37,0.92)",
-    "#3a404c",
-    2
-  );
-
-  const statCenters = [
-    panelX + panelWidth * 0.16,
-    panelX + panelWidth * 0.39,
-    panelX + panelWidth * 0.62,
-    panelX + panelWidth * 0.84
-  ];
-
-  const labels = ["集まった数", "参加者", "達成状況", "合計"];
-  labels.forEach((label, index) => {
-    context.fillStyle = "#9da3ad";
-    context.font = "700 19px system-ui, sans-serif";
-    context.fillText(label, statCenters[index], panelY + 35);
-  });
-
-  // 区切り線
-  context.strokeStyle = "#3b414d";
-  context.lineWidth = 1;
-  [0.275, 0.505, 0.735].forEach(rate => {
-    const x = panelX + panelWidth * rate;
-    context.beginPath();
-    context.moveTo(x, panelY + 20);
-    context.lineTo(x, panelY + panelHeight - 20);
-    context.stroke();
-  });
-
-  // 集まった数
-  context.fillStyle = uniqueCount > 0 ? "#ffe36e" : "#f5f5f5";
-  context.font = "900 46px system-ui, sans-serif";
-  context.fillText(`${uniqueCount} / 26`, statCenters[0], panelY + 92);
-
-  // 参加者
-  context.fillStyle = "#f5f5f5";
-  context.font = "900 40px system-ui, sans-serif";
-  context.fillText(`${participantCount} 人`, statCenters[1], panelY + 92);
-
-  // 達成状況
-  context.fillStyle = isAchieved ? "#ffe36e" : "#ff9a78";
-  context.font = "900 31px system-ui, sans-serif";
-  context.fillText(
-    isAchieved ? "達成！！" : "達成ならず...!!",
-    statCenters[2],
-    panelY + 92
-  );
-
-  // 合計
-  context.fillStyle = "#f5f5f5";
-  context.font = "900 40px system-ui, sans-serif";
-  context.fillText(`${totalCount} 回`, statCenters[3], panelY + 92);
-
-  // 進捗バー
-  const barX = panelX + 30;
-  const barY = panelY + 127;
-  const barWidth = panelWidth - 60;
-  const barHeight = 13;
-
-  drawRoundRect(barX, barY, barWidth, barHeight, 99, "#30343d", "#30343d", 0);
-
-  const progressWidth = barWidth * (uniqueCount / 26);
-  if (progressWidth > 0) {
-    const progressGradient = context.createLinearGradient(
-      barX,
-      barY,
-      barX + barWidth,
-      barY
-    );
-    progressGradient.addColorStop(0, "#b87333");
-    progressGradient.addColorStop(0.5, "#d8dbe0");
-    progressGradient.addColorStop(1, "#ffd84d");
-
-    drawRoundRect(
-      barX,
-      barY,
-      progressWidth,
-      barHeight,
-      99,
-      progressGradient,
-      progressGradient,
-      0
-    );
-  }
-
-  // アルファベットカード
-  letters.forEach((letter, index) => {
-    const column = index % columns;
-    const row = Math.floor(index / columns);
-    const x = sidePadding + column * (cardWidth + cardGap);
-    const y = headerHeight + row * (cardHeight + cardGap);
-    const count = counts[letter];
-    const level = getLevel(Math.max(0, Number(count) || 0));
-    const savedNames = Array.isArray(names[letter]) ? names[letter] : [];
-
-    let cardBackground = "#1b1e25";
-    let cardBorder = "#353944";
-    let letterColor = "#8f96a3";
-    let countColor = "#9da3ad";
-    let shadowColor = null;
-
-    if (level === "copper") {
-      cardBackground = "linear-gradient(145deg, #b87333, #7f431d 55%, #e0a06b)";
-      cardBorder = "#e0a06b";
-      letterColor = "#fff1df";
-      countColor = "#fff1df";
-      shadowColor = "rgba(184,115,51,0.35)";
-    } else if (level === "silver") {
-      cardBackground = "linear-gradient(145deg, #8e939b, #5e626a 55%, #f2f3f5)";
-      cardBorder = "#f2f3f5";
-      letterColor = "#ffffff";
-      countColor = "#ffffff";
-      shadowColor = "rgba(220,225,235,0.38)";
-    } else if (level === "gold") {
-      cardBackground = "linear-gradient(145deg, #c99600, #9c6c00 48%, #ffe36e)";
-      cardBorder = "#ffe36e";
-      letterColor = "#fff8cf";
-      countColor = "#fff8cf";
-      shadowColor = "rgba(255,215,50,0.45)";
-    }
-
-    if (shadowColor) {
-      context.shadowColor = shadowColor;
-      context.shadowBlur = level === "gold" ? 22 : 16;
-    } else {
-      context.shadowColor = "transparent";
-      context.shadowBlur = 0;
-    }
-
-    drawRoundRect(
-      x,
-      y,
-      cardWidth,
-      cardHeight,
-      18,
-      cardBackground,
-      cardBorder,
-      2
-    );
-    context.shadowColor = "transparent";
-    context.shadowBlur = 0;
-
-    // アルファベット
-    context.textAlign = "center";
-    context.fillStyle = letterColor;
-    context.font = "900 50px system-ui, sans-serif";
-    context.fillText(letter, x + cardWidth / 2, y + 58);
-
-    // 回数
-    context.fillStyle = countColor;
-    context.font = "700 18px system-ui, sans-serif";
-    context.fillText(`${count}回`, x + cardWidth / 2, y + 84);
-
-    // 名前：参加者なしなら空白
-    if (savedNames.length > 0) {
-      const nameText = savedNames.join("・");
-      let nameFontSize = 18;
-      context.font = `700 ${nameFontSize}px system-ui, sans-serif`;
-
-      while (
-        nameFontSize > 12 &&
-        context.measureText(nameText).width > cardWidth - 24
-      ) {
-        nameFontSize -= 1;
-        context.font = `700 ${nameFontSize}px system-ui, sans-serif`;
-      }
-
-      context.fillStyle = level ? "#fffaf0" : "#c5c9d0";
-      context.fillText(nameText, x + cardWidth / 2, y + 112);
-    }
-
-    // 3回以上ならカード内にも達成表示
-    if (count >= 3) {
-      context.fillStyle = "#fff8cf";
-      context.font = "900 15px system-ui, sans-serif";
-      context.fillText("達成！！", x + cardWidth / 2, y + 137);
-    }
-  });
-
-  // フッター
-  const footerY = canvas.height - 28;
-  context.textAlign = "center";
-  context.fillStyle = "#777d88";
-  context.font = "14px system-ui, sans-serif";
-  context.fillText(
-    "※ 画像は現在の進行状況を表示しています。",
-    canvasWidth / 2,
-    footerY
-  );
-
-  // iPad / iPhoneでは共有メニューを優先
-  // 「画像を保存」を選べば写真アプリへ保存できます。
-  canvas.toBlob(async blob => {
-    if (!blob) {
-      alert("画像の作成に失敗しました。");
-      return;
-    }
-
-    const file = new File([blob], "alphabet-challenge.png", {
-      type: "image/png"
-    });
-
-    // Web Share API + ファイル共有に対応している端末
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({
-          files: [file],
-          title: "ALPHABET CHALLENGE"
-        });
-        return;
-      } catch (error) {
-        // 共有画面を閉じた場合などは何もしない
-        if (error && error.name === "AbortError") {
-          return;
-        }
-      }
-    }
-
-    // 共有に対応していない場合は従来のダウンロードに戻す
-    const link = document.createElement("a");
-    link.download = "alphabet-challenge.png";
-    link.href = URL.createObjectURL(blob);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-  }, "image/png");
+function syncAchievementLevel() {
+  const copperComplete = letters.every(letter => counts[letter] >= 1);
+  const silverComplete = letters.every(letter => counts[letter] >= 2);
+  const goldComplete = letters.every(letter => counts[letter] >= 3);
+  achievementLevel = goldComplete ? 3 : silverComplete ? 2 : copperComplete ? 1 : 0;
 }
 
-// 減らすモード
+function checkAchievement() {
+  const copperComplete = letters.every(letter => counts[letter] >= 1);
+  const silverComplete = letters.every(letter => counts[letter] >= 2);
+  const goldComplete = letters.every(letter => counts[letter] >= 3);
+
+  let newLevel = 0;
+  if (copperComplete) newLevel = 1;
+  if (silverComplete) newLevel = 2;
+  if (goldComplete) newLevel = 3;
+
+  if (newLevel > achievementLevel) {
+    achievementLevel = newLevel;
+    showAchievement(newLevel);
+  }
+}
+
+function showAchievement(level) {
+  const title = level === 3 ? "ALL GOLD!" : level === 2 ? "ALL SILVER!" : "ALL COPPER!";
+  const text = level === 3 ? "26文字すべてが金になりました！" :
+               level === 2 ? "26文字すべてが銀になりました！" :
+               "26文字すべてが銅になりました！";
+
+  document.getElementById("achievementTitle").textContent = title;
+  document.getElementById("achievementText").textContent = text;
+  overlayElement.classList.add("show");
+  playAchievementSound();
+  createConfetti(level);
+
+  setTimeout(() => overlayElement.classList.remove("show"), 2800);
+}
+
+function playAchievementSound() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  const audioContext = new AudioContext();
+  [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = frequency;
+    const start = audioContext.currentTime + index * 0.11;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.16, start + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(start);
+    oscillator.stop(start + 0.3);
+  });
+  setTimeout(() => audioContext.close(), 900);
+}
+
+function createConfetti(level) {
+  const count = level === 3 ? 100 : 70;
+  for (let i = 0; i < count; i++) {
+    const piece = document.createElement("div");
+    piece.className = "confetti";
+    piece.style.background = `hsl(${Math.floor(Math.random() * 360)}, 85%, 65%)`;
+    piece.style.left = `${Math.random() * 100}vw`;
+    piece.style.setProperty("--drift", `${(Math.random() - 0.5) * 260}px`);
+    piece.style.animationDuration = `${2.2 + Math.random() * 2.2}s`;
+    piece.style.animationDelay = `${Math.random() * 0.4}s`;
+    document.body.appendChild(piece);
+    setTimeout(() => piece.remove(), 5000);
+  }
+}
 document.getElementById("minusMode").addEventListener("click", event => {
   minusMode = !minusMode;
-  event.target.textContent =
-    `減らすモード：${minusMode ? "ON" : "OFF"}`;
+  event.target.textContent = `減らすモード：${minusMode ? "ON" : "OFF"}`;
 });
 
-// 保存
 document.getElementById("saveButton").addEventListener("click", () => {
   save();
 });
 
-// 画像で書き出す
-document
-  .getElementById("exportImageButton")
-  .addEventListener("click", exportAlphabetImage);
+document.getElementById("copyShareButton").addEventListener("click", copyShareData);
+document.getElementById("importShareButton").addEventListener("click", importShareData);
 
-// 全リセット
 document.getElementById("resetButton").addEventListener("click", () => {
   if (!confirm("カウントをすべて0にしますか？")) return;
 
   letters.forEach(letter => {
     counts[letter] = 0;
-    names[letter] = [];
+    names[letter] = "";
   });
-
+  achievementLevel = 0;
   save();
   render();
 });
 
-// 名前追加
-document
-  .getElementById("saveNameButton")
-  .addEventListener("click", addListenerName);
+document.getElementById("saveNameButton").addEventListener("click", addListenerName);
+document.getElementById("cancelNameButton").addEventListener("click", closeNameModal);
+document.getElementById("nameInput").addEventListener("keydown", event => {
+  if (event.key === "Enter") addListenerName();
+  if (event.key === "Escape") closeNameModal();
+});
+document.getElementById("nameModal").addEventListener("click", event => {
+  if (event.target.id === "nameModal") closeNameModal();
+});
 
-// 名前キャンセル
-document
-  .getElementById("cancelNameButton")
-  .addEventListener("click", closeNameModal);
+overlayElement.addEventListener("click", () => {
+  overlayElement.classList.remove("show");
+});
 
-// 名前入力
-document
-  .getElementById("nameInput")
-  .addEventListener("keydown", event => {
-    if (event.key === "Enter") {
-      addListenerName();
-    }
-
-    if (event.key === "Escape") {
-      closeNameModal();
-    }
-  });
-
-// モーダル外をクリック
-document
-  .getElementById("nameModal")
-  .addEventListener("click", event => {
-    if (event.target.id === "nameModal") {
-      closeNameModal();
-    }
-  });
-
-// キーボード A～Z
 document.addEventListener("keydown", event => {
-  // 名前入力中はキーボード操作でカウントしない
-  if (document.activeElement === document.getElementById("nameInput")) {
-    return;
-  }
-
   const letter = event.key.toUpperCase();
 
   if (letters.includes(letter)) {
@@ -1065,9 +687,81 @@ document.addEventListener("keydown", event => {
   }
 });
 
-// 最初に保存データを読み込んで表示
-loadData();
 render();
+
+
+// ===== 共有データ =====
+// 現在の回数・名前を、相手に送れる1本の文字列にまとめます。
+function createShareData() {
+  const shareData = {
+    type: "alphabet-challenge",
+    version: 1,
+    counts: {},
+    names: {}
+  };
+
+  letters.forEach(letter => {
+    shareData.counts[letter] = counts[letter] || 0;
+    shareData.names[letter] = Array.isArray(names[letter]) ? [...names[letter]] : [];
+  });
+
+  return shareData;
+}
+
+function encodeShareData() {
+  const json = JSON.stringify(createShareData());
+  return btoa(unescape(encodeURIComponent(json)));
+}
+
+function decodeShareData(text) {
+  const json = decodeURIComponent(escape(atob(text.trim())));
+  const data = JSON.parse(json);
+
+  if (!data || data.type !== "alphabet-challenge" || data.version !== 1) {
+    throw new Error("対応していない共有データです。");
+  }
+
+  return data;
+}
+
+async function copyShareData() {
+  const shareText = encodeShareData();
+
+  try {
+    await navigator.clipboard.writeText(shareText);
+    alert("共有データをコピーしました。\nDiscordやLINEなどで相手に送ってください。");
+  } catch (error) {
+    window.prompt("下の共有データをコピーして相手に送ってください。", shareText);
+  }
+}
+
+function importShareData() {
+  const shareText = window.prompt("相手から受け取った共有データを貼り付けてください。");
+  if (!shareText) return;
+
+  try {
+    const data = decodeShareData(shareText);
+
+    letters.forEach(letter => {
+      const count = Number(data.counts?.[letter]);
+      counts[letter] = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+
+      const importedNames = data.names?.[letter];
+      names[letter] = Array.isArray(importedNames)
+        ? importedNames.filter(name => typeof name === "string")
+        : [];
+    });
+
+    achievementLevel = 0;
+    save();
+    render();
+    checkAchievement();
+    alert("共有データを読み込みました。");
+  } catch (error) {
+    alert("共有データを読み込めませんでした。\nコピーしたデータが全部入っているか確認してください。");
+  }
+}
+
 </script>
 </body>
 </html>
