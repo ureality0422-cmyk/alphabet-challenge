@@ -1,3 +1,19 @@
+貼り付けられたテキスト（1 点）(4).txt
+ドキュメント
+アルファベットを押下したとき、名前入力のポップアップが出ない
+
+修正版を作りました。
+
+修正したところ
+アルファベットをクリック → 名前入力ポップアップが表示
+A〜Zのキーボード入力でも、同じようにポップアップ表示
+名前入力中に A〜Z を押しても、アルファベットのカウントが増えない
+「全リセット」で名前データも正しくリセット
+
+修正版HTMLをダウンロード
+
+元のコードでは、openNameModal() は存在していたものの、nameModal・nameInput・saveNameButton などのHTMLが存在していませんでした。 
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -376,6 +392,21 @@
   </div>
 </div>
 
+
+<!-- 名前入力ポップアップ -->
+<div class="name-modal" id="nameModal">
+  <div class="name-dialog">
+    <h2>名前を追加</h2>
+    <p><span class="selected-letter" id="selectedLetter">A</span> の名前を入力してください</p>
+    <input id="nameInput" type="text" placeholder="名前を入力">
+    <div class="saved-names" id="savedNames"></div>
+    <div class="modal-buttons">
+      <button type="button" class="modal-button" id="cancelNameButton">キャンセル</button>
+      <button type="button" class="modal-button primary" id="saveNameButton">追加</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const storageKey = "alphabetChallengeCounts";
@@ -658,7 +689,7 @@ document.getElementById("resetButton").addEventListener("click", () => {
 
   letters.forEach(letter => {
     counts[letter] = 0;
-    names[letter] = "";
+    names[letter] = [];
   });
   achievementLevel = 0;
   save();
@@ -680,6 +711,11 @@ overlayElement.addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", event => {
+  const activeElement = document.activeElement;
+
+  // 名前入力中は A〜Z のキー入力でカウントしない
+  if (activeElement && activeElement.id === "nameInput") return;
+
   const letter = event.key.toUpperCase();
 
   if (letters.includes(letter)) {
@@ -765,3 +801,5 @@ function importShareData() {
 </script>
 </body>
 </html>
+alphabet_challenge_修正版.html
+HTML
